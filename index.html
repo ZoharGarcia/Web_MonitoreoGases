@@ -3,163 +3,233 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Interfaz Web IoT – Monitoreo de Gases (Simulada)</title>
+  <title>Sistema de Monitoreo de Gases — Interfaz</title>
 
-  <!-- Fuente -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 
-  <!-- Estilos propios -->
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Chart.js para la gráfica -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 
-  <!-- Lógica de simulación -->
   <script src="app.js" defer></script>
 </head>
 <body>
-  <!-- Topbar -->
-  <header class="topbar">
-    <div class="container topbar__inner">
-      <div class="brand">
-        <div class="brand__logo">
-          <svg viewBox="0 0 24 24" class="brand__icon" aria-hidden="true">
-            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 14.93V19h-2v-2.07a6.001 6.001 0 01-4.472-4.472H4v-2h2.528A6.001 6.001 0 0111 5.07V3h2v2.07a6.001 6.001 0 014.472 4.472H20v2h-2.528A6.001 6.001 0 0113 16.93z"/>
-          </svg>
-        </div>
-        <div class="brand__text">
-          <h1>Monitoreo de Gases – IoT</h1>
-          <p>Interfaz web simulada (datos falsos en tiempo real)</p>
-        </div>
-      </div>
-      <div class="topbar__actions">
-        <span id="statusBadge" class="badge badge--ok">En línea</span>
-        <button id="toggleTheme" class="btn btn--ghost">Tema</button>
-        <button class="btn btn--primary" id="btnExport">Exportar</button>
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="logo">⌁</div>
+      <div class="brand-text">
+        <div class="title">Sistema de Monitoreo de Gases</div>
+        <div class="subtitle">E. Chamorro S.A.</div>
       </div>
     </div>
-  </header>
 
-  <main class="container main">
-    <!-- KPIs -->
-    <section class="grid grid--kpi">
-      <div class="card shimmer">
-        <div class="card__head">
-          <p class="muted">CO (MQ-7)</p>
-          <span class="chip chip--blue">ppm</span>
-        </div>
-        <div class="kpi">
-          <h3 id="kpiCO" class="kpi__value">—</h3>
-          <span id="kpiCOTrend" class="kpi__trend">0.0%</span>
-        </div>
-        <div class="bar"><div id="barCO" class="bar__fill bar__fill--blue" style="width:0%"></div></div>
+    <nav class="sb-nav">
+      <a class="sb-item active" href="#">
+        <span class="icon">🏠</span> Inicio
+      </a>
+
+      <div class="sb-section">Sensores</div>
+      <a class="sb-item" href="#"><span class="dot co"></span> MQ-7 (CO)</a>
+      <a class="sb-item" href="#"><span class="dot ch4"></span> MQ-9 (CH₄)</a>
+      <a class="sb-item" href="#"><span class="dot iaq"></span> MQ-135 (Aire)</a>
+      <a class="sb-item" href="#"><span class="dot dht"></span> DHT11 (Temp/Hum)</a>
+
+      <div class="sb-section"> </div>
+      <a class="sb-item" href="#"><span class="icon">📈</span> Estadísticas</a>
+      <a class="sb-item" href="#"><span class="icon">📄</span> Informes</a>
+      <a class="sb-item" href="#"><span class="icon">⚙️</span> Configuración</a>
+      <a class="sb-item" href="#"><span class="icon">❓</span> Ayuda / Soporte</a>
+    </nav>
+  </aside>
+
+  <div class="layout">
+    <header class="topbar">
+      <div class="tb-left">
+        <button id="btnMenu" class="btn-ghost" aria-label="menu">☰</button>
+        <div class="tb-title">Panel de Control</div>
+        <div class="tb-sub">Monitoreo en tiempo real de gases industriales</div>
       </div>
-
-      <div class="card shimmer">
-        <div class="card__head">
-          <p class="muted">Calidad de Aire (MQ-135)</p>
-          <span class="chip chip--green">IAQ</span>
-        </div>
-        <div class="kpi">
-          <h3 id="kpiIAQ" class="kpi__value">—</h3>
-          <span id="kpiIAQTrend" class="kpi__trend">0.0%</span>
-        </div>
-        <div class="bar"><div id="barIAQ" class="bar__fill bar__fill--green" style="width:0%"></div></div>
+      <div class="tb-right">
+        <button id="toggleTheme" class="btn-ghost" title="Tema">🌙</button>
+        <div class="user">👤 Admin ▾</div>
       </div>
+    </header>
 
-      <div class="card shimmer">
-        <div class="card__head">
-          <p class="muted">Gas LP (MQ-9)</p>
-          <span class="chip chip--amber">ppm</span>
-        </div>
-        <div class="kpi">
-          <h3 id="kpiLPG" class="kpi__value">—</h3>
-          <span id="kpiLPGTrend" class="kpi__trend">0.0%</span>
-        </div>
-        <div class="bar"><div id="barLPG" class="bar__fill bar__fill--amber" style="width:0%"></div></div>
-      </div>
-
-      <div class="card shimmer">
-        <div class="card__head">
-          <p class="muted">Temp / Humedad</p>
-          <span class="chip chip--fuchsia">DHT11</span>
-        </div>
-        <div class="kpi2">
-          <div><div class="muted tiny">Temp</div><div id="kpiTemp" class="kpi2__value">—</div></div>
-          <div><div class="muted tiny">Hum</div><div id="kpiHum" class="kpi2__value">—</div></div>
-        </div>
-        <div class="bar"><div id="barComfort" class="bar__fill bar__fill--fuchsia" style="width:0%"></div></div>
-      </div>
-    </section>
-
-    <!-- Charts & Alerts -->
-    <section class="grid grid--main">
-      <div class="card card--stretch">
-        <div class="card__head card__head--row">
-          <div>
-            <h2 class="h2">Tendencias en tiempo real</h2>
-            <p class="muted tiny">Última actualización: <span id="lastUpdate">—</span></p>
+    <main class="content">
+      <section class="kpi-grid">
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-head">
+            <div>Calidad del Aire</div>
+            <div class="kpi-icon">〰️</div>
           </div>
-          <div class="btns">
-            <button id="btnPausa" class="btn btn--ghost">Pausar</button>
-            <button id="btnReiniciar" class="btn btn--primary">Reiniciar</button>
+          <div class="kpi-value" id="kpiAir">68%</div>
+        </div>
+
+        <div class="kpi-card kpi-red">
+          <div class="kpi-head">
+            <div>Eventos Críticos</div>
+            <div class="kpi-icon">⚠️</div>
           </div>
+          <div class="kpi-value" id="kpiCritical">3</div>
         </div>
-        <div class="chartWrap">
-          <canvas id="lineChart" height="120"></canvas>
-        </div>
-      </div>
 
-      <div class="card">
-        <h3 class="h3">Alertas</h3>
-        <ul id="alertList" class="alerts"></ul>
-        <div class="muted tiny mt">Umbrales (simulados): CO &gt; 35 ppm, LPG &gt; 100 ppm, IAQ &lt; 60 (malo)</div>
-      </div>
-    </section>
-
-    <!-- Table & Map -->
-    <section class="grid grid--lower">
-      <div class="card">
-        <div class="card__head card__head--row">
-          <h3 class="h3">Histórico reciente</h3>
-          <div class="muted tiny">Mostrando últimas 25 lecturas</div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-head">
+            <div>Dispositivos Activos</div>
+            <div class="kpi-icon">✔️</div>
+          </div>
+          <div class="kpi-value" id="kpiDevices">4/4</div>
         </div>
-        <div class="tableWrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Hora</th>
-                <th>CO (ppm)</th>
-                <th>IAQ</th>
-                <th>LPG (ppm)</th>
-                <th>Temp (°C)</th>
-                <th>Hum (%)</th>
-              </tr>
-            </thead>
-            <tbody id="historyBody"></tbody>
-          </table>
-        </div>
-      </div>
 
-      <div class="card">
-        <h3 class="h3">Ubicación</h3>
-        <p class="muted tiny">Marcador de ejemplo (UNI Managua)</p>
-        <div class="mapWrap">
-          <iframe
-            title="Mapa"
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=-86.275%2C12.125%2C-86.251%2C12.16&layer=mapnik&marker=12.140%2C-86.264">
-          </iframe>
+        <div class="kpi-card kpi-purple">
+          <div class="kpi-head">
+            <div>Tendencia General</div>
+            <div class="kpi-icon">📈</div>
+          </div>
+          <div class="kpi-value" id="kpiTrend">+12%</div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <footer class="footer">
-      Interfaz simulada para pruebas de UI – No conecta a hardware real. · © 2025
-    </footer>
-  </main>
+      <h2 class="section-title">Sensores Activos</h2>
+
+      <section class="sensor-grid">
+        <!-- MQ-7 -->
+        <article class="sensor-card">
+          <div class="sensor-head">
+            <div>
+              <div class="sensor-title">Sensor MQ-7</div>
+              <div class="sensor-sub">Monóxido de Carbono (CO)</div>
+            </div>
+            <span class="badge badge-ok">Normal</span>
+          </div>
+
+          <div class="sensor-kpi">
+            <span class="sensor-value" id="coValue">—</span>
+            <span class="unit">ppm</span>
+            <span class="trend">〰️</span>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="coChart" height="110"></canvas>
+          </div>
+
+          <div class="sensor-footer">
+            <div class="sf-col">
+              <div class="sf-label">Máximo del día</div>
+              <div class="sf-value" id="coMax">—</div>
+            </div>
+            <div class="sf-col">
+              <div class="sf-label">Promedio</div>
+              <div class="sf-value" id="coAvg">—</div>
+            </div>
+          </div>
+
+          <button class="btn-full">Ver detalles</button>
+        </article>
+
+        <!-- MQ-9 -->
+        <article class="sensor-card">
+          <div class="sensor-head">
+            <div>
+              <div class="sensor-title">Sensor MQ-9</div>
+              <div class="sensor-sub">Metano (CH₄)</div>
+            </div>
+            <span class="badge badge-warn">Alerta</span>
+          </div>
+
+          <div class="sensor-kpi">
+            <span class="sensor-value" id="ch4Value">—</span>
+            <span class="unit">ppm</span>
+            <span class="trend trend-up">↗</span>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="ch4Chart" height="110"></canvas>
+          </div>
+
+          <div class="sensor-footer">
+            <div class="sf-col">
+              <div class="sf-label">Máximo del día</div>
+              <div class="sf-value" id="ch4Max">—</div>
+            </div>
+            <div class="sf-col">
+              <div class="sf-label">Promedio</div>
+              <div class="sf-value" id="ch4Avg">—</div>
+            </div>
+          </div>
+
+          <button class="btn-full">Ver detalles</button>
+        </article>
+
+        <!-- MQ-135 -->
+        <article class="sensor-card">
+          <div class="sensor-head">
+            <div>
+              <div class="sensor-title">Sensor MQ-135</div>
+              <div class="sensor-sub">Calidad del Aire</div>
+            </div>
+            <span class="badge badge-ok">Normal</span>
+          </div>
+
+          <div class="sensor-kpi">
+            <span class="sensor-value" id="iaqValue">—</span>
+            <span class="unit">IAQ</span>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="iaqChart" height="110"></canvas>
+          </div>
+
+          <div class="sensor-footer">
+            <div class="sf-col">
+              <div class="sf-label">Máximo del día</div>
+              <div class="sf-value" id="iaqMax">—</div>
+            </div>
+            <div class="sf-col">
+              <div class="sf-label">Promedio</div>
+              <div class="sf-value" id="iaqAvg">—</div>
+            </div>
+          </div>
+
+          <button class="btn-full">Ver detalles</button>
+        </article>
+
+        <!-- DHT11 -->
+        <article class="sensor-card">
+          <div class="sensor-head">
+            <div>
+              <div class="sensor-title">Sensor DHT11</div>
+              <div class="sensor-sub">Temperatura / Humedad</div>
+            </div>
+            <span class="badge badge-ok">Normal</span>
+          </div>
+
+          <div class="sensor-kpi dual">
+            <div><span class="sensor-value" id="tValue">—</span><span class="unit">°C</span></div>
+            <div><span class="sensor-value" id="hValue">—</span><span class="unit">%</span></div>
+          </div>
+
+          <div class="chart-wrap">
+            <canvas id="dhtChart" height="110"></canvas>
+          </div>
+
+          <div class="sensor-footer">
+            <div class="sf-col">
+              <div class="sf-label">Máx Temp / Hum</div>
+              <div class="sf-value" id="dhtMax">—</div>
+            </div>
+            <div class="sf-col">
+              <div class="sf-label">Promedio</div>
+              <div class="sf-value" id="dhtAvg">—</div>
+            </div>
+          </div>
+
+          <button class="btn-full">Ver detalles</button>
+        </article>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
