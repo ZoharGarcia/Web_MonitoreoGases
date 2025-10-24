@@ -1,190 +1,100 @@
-// ------ Utilidades ------
+// Utilidades
 const fmt = (n, d=0) => Number(n).toFixed(d);
-const nowStr = () => new Date().toLocaleTimeString();
+const now = () => new Date().toLocaleTimeString();
 
-// ------ Estado ------
-let running = true;
-const MAX_POINTS = 40;
-const history = [];
+// Tema
+const toggleTheme = document.getElementById('toggleTheme');
+toggleTheme.addEventListener('click', () => document.body.classList.toggle('light'));
 
-// Semillas para datos pseudoaleatorios con algo de suavizado
-let sCO = 15, sIAQ = 80, sLPG = 60, sT = 28, sH = 55;
-
-function jitter(base, step, min, max) {
-  base += (Math.random() - 0.5) * step;
-  return Math.max(min, Math.min(max, base));
+// Simulación de datos (suaves)
+function jitter(x, step, min, max){
+  x += (Math.random() - 0.5) * step;
+  return Math.max(min, Math.min(max, x));
 }
 
-function comfortIndex(t, h) {
-  // Índice ficticio 0-100
-  const idealT = 24, idealH = 50;
-  const dt = Math.abs(t - idealT);
-  const dh = Math.abs(h - idealH);
-  return Math.max(0, 100 - (dt*3 + dh*1.4));
-}
-
-// ------ DOM ------
-const el = {
-  kpiCO: document.getElementById('kpiCO'),
-  kpiIAQ: document.getElementById('kpiIAQ'),
-  kpiLPG: document.getElementById('kpiLPG'),
-  kpiTemp: document.getElementById('kpiTemp'),
-  kpiHum: document.getElementById('kpiHum'),
-  barCO: document.getElementById('barCO'),
-  barIAQ: document.getElementById('barIAQ'),
-  barLPG: document.getElementById('barLPG'),
-  barComfort: document.getElementById('barComfort'),
-  kpiCOTrend: document.getElementById('kpiCOTrend'),
-  kpiIAQTrend: document.getElementById('kpiIAQTrend'),
-  kpiLPGTrend: document.getElementById('kpiLPGTrend'),
-  lastUpdate: document.getElementById('lastUpdate'),
-  historyBody: document.getElementById('historyBody'),
-  alertList: document.getElementById('alertList'),
-  statusBadge: document.getElementById('statusBadge'),
-  btnPausa: document.getElementById('btnPausa'),
-  btnReiniciar: document.getElementById('btnReiniciar'),
-  toggleTheme: document.getElementById('toggleTheme'),
-  btnExport: document.getElementById('btnExport'),
+// Estado por sensor
+const state = {
+  co: 45, ch4: 85, iaq: 68, t: 28, h: 55,
+  max: {co: 78, ch4: 92, iaq: 90, t: 33, h: 88},
+  avg: {co: 42, ch4: 65, iaq: 72, t: 27, h: 58}
 };
 
-// ------ Chart.js ------
-const ctx = document.getElementById('lineChart');
-const chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: [],
-    datasets: [
-      { label: 'CO (ppm)', data: [], borderWidth: 2, tension: .35 },
-      { label: 'IAQ', data: [], borderWidth: 2, tension: .35 },
-      { label: 'LPG (ppm)', data: [], borderWidth: 2, tension: .35 },
-      { label: 'Temp (°C)', data: [], borderWidth: 2, tension: .35 },
-      { label: 'Hum (%)', data: [], borderWidth: 2, tension: .35 },
-    ]
-  },
-  options: {
-    animation: false,
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { labels: { color: '#cbd5e1', boxWidth: 10 } },
-      tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${fmt(ctx.parsed.y, 1)}` } }
-    },
-    scales: {
-      x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,.15)' } },
-      y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,.15)' } }
+// Datasets y gráficos
+const charts = {};
+function mkLine(ctx, label, color){
+  return new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [{label, data: [], borderWidth: 2, tension:.35}] },
+    options: {
+      animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}},
+      scales:{
+        x: { ticks:{color:'#94a3b8'}, grid:{color:'rgba(148,163,184,.2)', borderDash:[4,4]}},
+        y: { ticks:{color:'#94a3b8'}, grid:{color:'rgba(148,163,184,.2)', borderDash:[4,4]}}
+      }
     }
-  }
+  });
+}
+
+// Crear charts
+document.addEventListener('DOMContentLoaded', () => {
+  charts.co  = mkLine(document.getElementById('coChart'),  'CO (ppm)');
+  charts.ch4 = mkLine(document.getElementById('ch4Chart'), 'CH₄ (ppm)');
+  charts.iaq = mkLine(document.getElementById('iaqChart'), 'IAQ');
+  charts.dht = mkLine(document.getElementById('dhtChart'), 'DHT11');
+
+  // Seed inicial
+  for(let i=0;i<30;i++) tick(true);
+  // Loop
+  setInterval(() => tick(false), 1200);
 });
 
-function pushChartPoint(co, iaq, lpg, temp, hum) {
-  const labels = chart.data.labels;
-  const ds = chart.data.datasets;
-  labels.push(nowStr());
-  ds[0].data.push(co);
-  ds[1].data.push(iaq);
-  ds[2].data.push(lpg);
-  ds[3].data.push(temp);
-  ds[4].data.push(hum);
-  if (labels.length > MAX_POINTS) {
-    labels.shift();
-    ds.forEach(d => d.data.shift());
-  }
+// Push punto y limitar longitud
+function push(chart, value){
+  const L = chart.data.labels;
+  const D = chart.data.datasets[0].data;
+  L.push(now()); D.push(value);
+  if(L.length>36){L.shift(); D.shift();}
   chart.update();
 }
 
-function addHistoryRow(row) {
-  history.unshift(row);
-  if (history.length > 25) history.pop();
-  el.historyBody.innerHTML = history.map(r => `
-    <tr>
-      <td>${r.time}</td>
-      <td>${fmt(r.co,1)}</td>
-      <td>${fmt(r.iaq,0)}</td>
-      <td>${fmt(r.lpg,1)}</td>
-      <td>${fmt(r.temp,1)}</td>
-      <td>${fmt(r.hum,0)}</td>
-    </tr>
-  `).join('');
+// Actualizar KPIs en DOM
+function setText(id, txt){ document.getElementById(id).textContent = txt; }
+
+function tick(seed=false){
+  // actualizar valores simulados
+  state.co  = jitter(state.co,  8,  10, 120);
+  state.ch4 = jitter(state.ch4, 10,  10, 160);
+  state.iaq = jitter(state.iaq,  4,  20, 100);
+  state.t   = jitter(state.t,    .6, 18,  36);
+  state.h   = jitter(state.h,    2,  25,  95);
+
+  // KPIs grandes por tarjeta
+  setText('coValue',  fmt(state.co,1));
+  setText('ch4Value', fmt(state.ch4,1));
+  setText('iaqValue', fmt(state.iaq,0));
+  setText('tValue',   fmt(state.t,1));
+  setText('hValue',   fmt(state.h,0));
+
+  // Máximos/promedios simulados (fijos de demo)
+  setText('coMax',  state.max.co + ' ppm');
+  setText('coAvg',  state.avg.co + ' ppm');
+  setText('ch4Max', state.max.ch4 + ' ppm');
+  setText('ch4Avg', state.avg.ch4 + ' ppm');
+  setText('iaqMax', state.max.iaq);
+  setText('iaqAvg', state.avg.iaq);
+  setText('dhtMax', fmt(state.max.t,0)+' °C / '+fmt(state.max.h,0)+' %');
+  setText('dhtAvg', fmt(state.avg.t,0)+' °C / '+fmt(state.avg.h,0)+' %');
+
+  // Graficar
+  push(charts.co,  state.co);
+  push(charts.ch4, state.ch4);
+  push(charts.iaq, state.iaq);
+  // Para DHT: combinamos T y H en mismo dataset como “índice visual”
+  push(charts.dht, state.t + (state.h/5)); // solo efecto visual
+
+  // Tarjetas KPI superiores también podrían animarse:
+  // (aquí las mantenemos con valores de ejemplo fijos)
+  if(seed){ /* nada */ }
 }
 
-function pushAlertIfNeeded({co, iaq, lpg}) {
-  const items = [];
-  if (co > 35) items.push({txt:`CO alto: ${fmt(co,1)} ppm`, cls:'alert--red'});
-  if (lpg > 100) items.push({txt:`Gas LP elevado: ${fmt(lpg,1)} ppm`, cls:'alert--amber'});
-  if (iaq < 60) items.push({txt:`Calidad de aire deficiente: IAQ ${fmt(iaq,0)}`, cls:'alert--yellow'});
-  for (const it of items) {
-    const li = document.createElement('li');
-    li.className = it.cls;
-    li.innerHTML = `<span>${it.txt}</span><span class="tiny muted">${nowStr()}</span>`;
-    el.alertList.prepend(li);
-    while (el.alertList.children.length > 6) el.alertList.lastChild.remove();
-  }
-}
-
-function updateKPIs({co, iaq, lpg, temp, hum}, prev) {
-  el.kpiCO.textContent = fmt(co,1);
-  el.kpiIAQ.textContent = fmt(iaq,0);
-  el.kpiLPG.textContent = fmt(lpg,1);
-  el.kpiTemp.textContent = fmt(temp,1);
-  el.kpiHum.textContent = fmt(hum,0);
-
-  el.barCO.style.width = Math.min(100, co*2.0) + '%';
-  el.barIAQ.style.width = Math.max(0, Math.min(100, iaq)) + '%';
-  el.barLPG.style.width = Math.min(100, lpg) + '%';
-  el.barComfort.style.width = Math.max(0, Math.min(100, comfortIndex(temp, hum))) + '%';
-
-  const trend = (val, prev) => (prev ? ((val - prev)/Math.max(1e-6, prev))*100 : 0);
-  el.kpiCOTrend.textContent = `${trend(co, prev?.co).toFixed(1)}%`;
-  el.kpiIAQTrend.textContent = `${trend(iaq, prev?.iaq).toFixed(1)}%`;
-  el.kpiLPGTrend.textContent = `${trend(lpg, prev?.lpg).toFixed(1)}%`;
-}
-
-// ------ Loop de simulación ------
-let prevSample = null;
-function sample() {
-  sCO  = jitter(sCO, 4.2,  2, 120);
-  sIAQ = jitter(sIAQ, 2.5, 30, 100);
-  sLPG = jitter(sLPG, 6.0,  5, 220);
-  sT   = jitter(sT, 0.5,  18,  36);
-  sH   = jitter(sH, 1.8,  25,  95);
-
-  const point = { co: sCO, iaq: sIAQ, lpg: sLPG, temp: sT, hum: sH, time: nowStr() };
-  updateKPIs(point, prevSample);
-  pushChartPoint(point.co, point.iaq, point.lpg, point.temp, point.hum);
-  addHistoryRow(point);
-  pushAlertIfNeeded(point);
-  el.lastUpdate.textContent = nowStr();
-  prevSample = point;
-}
-
-let timer = setInterval(() => { if (running) sample(); }, 1200);
-
-// ------ Controles ------
-el.btnPausa.addEventListener('click', () => {
-  running = !running;
-  el.btnPausa.textContent = running ? 'Pausar' : 'Reanudar';
-  el.statusBadge.textContent = running ? 'En línea' : 'Pausado';
-  el.statusBadge.className = running ? 'badge badge--ok' : 'badge badge--pause';
-});
-
-el.btnReiniciar.addEventListener('click', () => {
-  chart.data.labels = [];
-  chart.data.datasets.forEach(d => d.data = []);
-  chart.update();
-  el.alertList.innerHTML = '';
-  el.historyBody.innerHTML = '';
-  prevSample = null;
-});
-
-let light = false;
-el.toggleTheme.addEventListener('click', () => {
-  light = !light;
-  document.body.classList.toggle('light', light);
-});
-
-el.btnExport.addEventListener('click', () => {
-  alert('Demo: aquí podrías exportar CSV/PNG. En esta simulación solo mostramos este aviso.');
-});
-
-// Semilla inicial
-for (let i=0;i<12;i++) sample();
